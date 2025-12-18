@@ -22,29 +22,14 @@ Laravel Eloquent extensions for IBM DB2 databases with column mapping, multi-col
 
 ## Installation
 
-### Via Composer (GitHub)
-
-Add the repository to your `composer.json`:
-
-```json
-{
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/CodyJHeiser/laravel-db2-eloquent"
-        }
-    ],
-    "require": {
-        "codyjheiser/laravel-db2-eloquent": "dev-main"
-    }
-}
-```
-
-Then run:
-
 ```bash
-composer update
+composer require codyjheiser/laravel-db2-eloquent
 ```
+
+### Requirements
+
+- PHP 8.4+
+- Laravel 12+
 
 ## Basic Usage
 
@@ -560,7 +545,7 @@ protected bool $applyMapsOnOutput = false;
 
 ### Requirements
 
-- PHP 8.2+
+- PHP 8.4+
 - Composer
 - For integration tests: IBM i Access ODBC Driver + `pdo_odbc` PHP extension
 
