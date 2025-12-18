@@ -6,6 +6,7 @@ Laravel Eloquent extensions for IBM DB2 databases with column mapping, multi-col
 
 - [Installation](#installation)
 - [Basic Usage](#basic-usage)
+- [Generating Models](#generating-models)
 - [Database Schema](#database-schema)
   - [Testing Database](#testing-database)
 - [Column Mapping](#column-mapping)
@@ -54,6 +55,23 @@ class Customer extends Model
 Customer::where('customer_number', '123')->first();
 Item::where('item_number', 'ABC123')->orderBy('manufacturer')->get();
 ```
+
+## Generating Models
+
+Use the Artisan command to quickly scaffold new DB2 models:
+
+```bash
+# Basic usage - creates app/Models/IBM/Customer.php
+php artisan make:db2-model Customer VARCUST
+
+# With schema prefix
+php artisan make:db2-model Customer R60FILES.VARCUST
+
+# Custom path - creates app/Models/Customer.php
+php artisan make:db2-model Customer VARCUST --path=Models
+```
+
+The generated model includes the schema, table, casts, and maps properties ready to be filled in.
 
 ## Database Schema
 
@@ -516,6 +534,32 @@ Override the connection in your model if needed:
 ```php
 protected $connection = 'my_other_db2_connection';
 ```
+
+### Schema Configuration
+
+Models generated with `make:db2-model` pull their schema from config, allowing you to manage schemas centrally. Add this to your `config/database.php`:
+
+```php
+'ibm' => [
+    'schema' => [
+        'R60FILES' => env('IBM_SCHEMA_FILES', 'R60FILES'),
+        'R60FSDTA' => env('IBM_SCHEMA_FSDTA', 'R60FSDTA'),
+    ],
+],
+```
+
+Generated models use the config with a fallback to the default:
+
+```php
+public function __construct(array $attributes = [])
+{
+    $this->schema = config('database.ibm.schema.R60FILES', 'R60FILES');
+
+    parent::__construct($attributes);
+}
+```
+
+This lets you switch schemas via environment variables without modifying model code.
 
 ### Default Company
 

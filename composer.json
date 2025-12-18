@@ -38,7 +38,9 @@
     },
     "extra": {
         "laravel": {
-            "providers": []
+            "providers": [
+                "CodyJHeiser\\Db2Eloquent\\Db2EloquentServiceProvider"
+            ]
         }
     },
     "scripts": {
