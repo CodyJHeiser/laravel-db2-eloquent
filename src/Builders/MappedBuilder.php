@@ -3,9 +3,82 @@
 namespace CodyJHeiser\Db2Eloquent\Builders;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Contracts\Database\Query\Expression;
 
 class MappedBuilder extends Builder
 {
+    /**
+     * Track select aliases for case normalization.
+     * Maps UPPERCASE => original_case for aliases used in select/addSelect.
+     */
+    protected array $selectAliases = [];
+
+    /**
+     * Check if a value is a subquery or expression (should not be translated).
+     */
+    protected function isSubqueryOrExpression($value): bool
+    {
+        return $value instanceof Builder
+            || $value instanceof \Illuminate\Database\Query\Builder
+            || $value instanceof Expression;
+    }
+
+    /**
+     * Track an alias for case normalization.
+     */
+    protected function trackAlias(string $alias): void
+    {
+        $this->selectAliases[strtoupper($alias)] = $alias;
+    }
+
+    /**
+     * Get the tracked select aliases.
+     */
+    public function getSelectAliases(): array
+    {
+        return $this->selectAliases;
+    }
+
+    /**
+     * Normalize attribute keys from DB2 uppercase to original aliases.
+     */
+    protected function normalizeAttributeKeys(array $attributes): array
+    {
+        if (empty($this->selectAliases)) {
+            return $attributes;
+        }
+
+        $normalized = [];
+        foreach ($attributes as $key => $value) {
+            $upperKey = strtoupper($key);
+            if (isset($this->selectAliases[$upperKey])) {
+                $normalized[$this->selectAliases[$upperKey]] = $value;
+            } else {
+                $normalized[$key] = $value;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Get the hydrated models without eager loading.
+     * Overridden to normalize attribute keys from DB2 uppercase.
+     */
+    public function getModels($columns = ['*'])
+    {
+        $results = $this->query->get($columns);
+
+        // Normalize attribute keys if we have tracked aliases
+        if (!empty($this->selectAliases)) {
+            $results = $results->map(function ($item) {
+                return (object) $this->normalizeAttributeKeys((array) $item);
+            });
+        }
+
+        return $this->model->hydrate($results->all())->all();
+    }
+
     /**
      * Get the reverse maps from the model.
      */
@@ -140,7 +213,25 @@ class MappedBuilder extends Builder
     public function select($columns = ['*'])
     {
         $columns = is_array($columns) ? $columns : func_get_args();
-        $translated = array_map(fn($col) => $this->translateQualifiedColumn($col), $columns);
+        $translated = [];
+
+        foreach ($columns as $key => $col) {
+            // Track string keys as aliases for case normalization
+            if (is_string($key)) {
+                $this->trackAlias($key);
+            }
+
+            if ($this->isSubqueryOrExpression($col)) {
+                // Subqueries and expressions pass through unchanged
+                $translated[$key] = $col;
+            } elseif (is_string($col)) {
+                // Translate string column names
+                $translated[$key] = $this->translateQualifiedColumn($col);
+            } else {
+                // Unknown type, pass through
+                $translated[$key] = $col;
+            }
+        }
 
         return parent::select($translated);
     }
@@ -151,7 +242,25 @@ class MappedBuilder extends Builder
     public function addSelect($column)
     {
         $columns = is_array($column) ? $column : func_get_args();
-        $translated = array_map(fn($col) => $this->translateQualifiedColumn($col), $columns);
+        $translated = [];
+
+        foreach ($columns as $key => $col) {
+            // Track string keys as aliases for case normalization
+            if (is_string($key)) {
+                $this->trackAlias($key);
+            }
+
+            if ($this->isSubqueryOrExpression($col)) {
+                // Subqueries and expressions pass through unchanged
+                $translated[$key] = $col;
+            } elseif (is_string($col)) {
+                // Translate string column names
+                $translated[$key] = $this->translateQualifiedColumn($col);
+            } else {
+                // Unknown type, pass through
+                $translated[$key] = $col;
+            }
+        }
 
         return parent::addSelect($translated);
     }
