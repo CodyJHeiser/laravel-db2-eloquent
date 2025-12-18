@@ -1,0 +1,55 @@
+{
+    "name": "codyjheiser/laravel-db2-eloquent",
+    "description": "Laravel Eloquent extensions for IBM DB2 databases with column mapping, multi-column relationships, and auto-filtering",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Cody J Heiser",
+            "email": "cody@example.com"
+        }
+    ],
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/rufhausen/db2-driver"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/database": "^11.0|^12.0",
+        "illuminate/support": "^11.0|^12.0",
+        "nesbot/carbon": "^2.0|^3.0",
+        "rufhausen/db2-driver": "dev-master"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0|^10.0",
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "CodyJHeiser\\Db2Eloquent\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "CodyJHeiser\\Db2Eloquent\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": []
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit --testsuite Unit",
+        "test-integration": "vendor/bin/phpunit --testsuite Integration",
+        "test-all": "vendor/bin/phpunit",
+        "test-coverage": "vendor/bin/phpunit --coverage-html coverage"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
