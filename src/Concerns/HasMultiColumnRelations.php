@@ -4,7 +4,9 @@ namespace CodyJHeiser\Db2Eloquent\Concerns;
 
 use CodyJHeiser\Db2Eloquent\Relations\BelongsToMultiple;
 use CodyJHeiser\Db2Eloquent\Relations\HasManyMultiple;
+use CodyJHeiser\Db2Eloquent\Relations\HasManyThroughMultiple;
 use CodyJHeiser\Db2Eloquent\Relations\HasOneMultiple;
+use CodyJHeiser\Db2Eloquent\Relations\HasOneThroughMultiple;
 
 /**
  * Trait to support multi-column relationships with DB2-compatible SQL.
@@ -159,5 +161,119 @@ trait HasMultiColumnRelations
 
         // Standard single-column relationship
         return parent::hasOne($related, $foreignKey, $localKey);
+    }
+
+    /**
+     * Define a has-one-through relationship.
+     * Supports array keys for multi-column relationships (DB2-compatible).
+     * Supports mapped column names.
+     *
+     * @param string $related
+     * @param string $through
+     * @param string|array|null $firstKey Foreign key on through table
+     * @param string|array|null $secondKey Foreign key on related table
+     * @param string|array|null $localKey Local key on parent table
+     * @param string|array|null $secondLocalKey Local key on through table
+     * @return \Illuminate\Database\Eloquent\Relations\HasOneThrough|HasOneThroughMultiple
+     */
+    public function hasOneThrough($related, $through, $firstKey = null, $secondKey = null, $localKey = null, $secondLocalKey = null)
+    {
+        $throughInstance = $this->newRelatedInstance($through);
+        $relatedInstance = $this->newRelatedInstance($related);
+
+        // If keys not specified, assume same mapped names
+        if ($firstKey !== null && $localKey === null) {
+            $localKey = $firstKey;
+        }
+        if ($secondKey !== null && $secondLocalKey === null) {
+            $secondLocalKey = $secondKey;
+        }
+
+        // Translate mapped column names to DB columns
+        if ($firstKey !== null) {
+            $firstKey = $this->translateRelationColumns($firstKey, $throughInstance);
+        }
+        if ($secondKey !== null) {
+            $secondKey = $this->translateRelationColumns($secondKey, $relatedInstance);
+        }
+        if ($localKey !== null) {
+            $localKey = $this->translateRelationColumns($localKey, $this);
+        }
+        if ($secondLocalKey !== null) {
+            $secondLocalKey = $this->translateRelationColumns($secondLocalKey, $throughInstance);
+        }
+
+        // If arrays are passed, use multi-column relationship
+        if (is_array($firstKey) && is_array($secondKey)) {
+            return new HasOneThroughMultiple(
+                $relatedInstance->newQuery(),
+                $this,
+                $throughInstance,
+                $firstKey,
+                $secondKey,
+                $localKey,
+                $secondLocalKey
+            );
+        }
+
+        // Standard single-column relationship
+        return parent::hasOneThrough($related, $through, $firstKey, $secondKey, $localKey, $secondLocalKey);
+    }
+
+    /**
+     * Define a has-many-through relationship.
+     * Supports array keys for multi-column relationships (DB2-compatible).
+     * Supports mapped column names.
+     *
+     * @param string $related
+     * @param string $through
+     * @param string|array|null $firstKey Foreign key on through table
+     * @param string|array|null $secondKey Foreign key on related table
+     * @param string|array|null $localKey Local key on parent table
+     * @param string|array|null $secondLocalKey Local key on through table
+     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough|HasManyThroughMultiple
+     */
+    public function hasManyThrough($related, $through, $firstKey = null, $secondKey = null, $localKey = null, $secondLocalKey = null)
+    {
+        $throughInstance = $this->newRelatedInstance($through);
+        $relatedInstance = $this->newRelatedInstance($related);
+
+        // If keys not specified, assume same mapped names
+        if ($firstKey !== null && $localKey === null) {
+            $localKey = $firstKey;
+        }
+        if ($secondKey !== null && $secondLocalKey === null) {
+            $secondLocalKey = $secondKey;
+        }
+
+        // Translate mapped column names to DB columns
+        if ($firstKey !== null) {
+            $firstKey = $this->translateRelationColumns($firstKey, $throughInstance);
+        }
+        if ($secondKey !== null) {
+            $secondKey = $this->translateRelationColumns($secondKey, $relatedInstance);
+        }
+        if ($localKey !== null) {
+            $localKey = $this->translateRelationColumns($localKey, $this);
+        }
+        if ($secondLocalKey !== null) {
+            $secondLocalKey = $this->translateRelationColumns($secondLocalKey, $throughInstance);
+        }
+
+        // If arrays are passed, use multi-column relationship
+        if (is_array($firstKey) && is_array($secondKey)) {
+            return new HasManyThroughMultiple(
+                $relatedInstance->newQuery(),
+                $this,
+                $throughInstance,
+                $firstKey,
+                $secondKey,
+                $localKey,
+                $secondLocalKey
+            );
+        }
+
+        // Standard single-column relationship
+        return parent::hasManyThrough($related, $through, $firstKey, $secondKey, $localKey, $secondLocalKey);
     }
 }

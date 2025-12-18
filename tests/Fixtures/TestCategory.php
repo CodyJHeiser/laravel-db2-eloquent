@@ -41,6 +41,7 @@ class TestCategory extends Model
         'CTCODE' => 'category_code',
         'CTNAME' => 'category_name',
         'CTCOMP' => 'company_number',
+        'CTDEPT' => 'department_code',
         'CTDLTC' => 'delete_code',
     ];
 

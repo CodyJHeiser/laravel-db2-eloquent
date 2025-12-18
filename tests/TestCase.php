@@ -114,11 +114,29 @@ abstract class TestCase extends Orchestra
             $table->string('DTINFO', 100)->nullable();
         });
 
+        // Department tables for hasOneThrough/hasManyThrough tests
+        $this->app['db']->connection('testing')->getSchemaBuilder()->create('test_departments', function ($table) {
+            $table->string('DPCODE', 10);
+            $table->string('DPNAME', 50)->nullable();
+            $table->string('DPCOMP', 2)->default('1');
+            $table->string('DPDLTC', 1)->default('A');
+            $table->primary(['DPCODE', 'DPCOMP']);
+        });
+
+        $this->app['db']->connection('testing')->getSchemaBuilder()->create('t60_test_departments', function ($table) {
+            $table->string('DPCODE', 10);
+            $table->string('DPNAME', 50)->nullable();
+            $table->string('DPCOMP', 2)->default('1');
+            $table->string('DPDLTC', 1)->default('A');
+            $table->primary(['DPCODE', 'DPCOMP']);
+        });
+
         // Relationship test tables (simulate production schema)
         $this->app['db']->connection('testing')->getSchemaBuilder()->create('test_categories', function ($table) {
             $table->string('CTCODE', 10);
             $table->string('CTNAME', 50)->nullable();
             $table->string('CTCOMP', 2)->default('1');
+            $table->string('CTDEPT', 10)->nullable();
             $table->string('CTDLTC', 1)->default('A');
             $table->primary(['CTCODE', 'CTCOMP']);
         });
@@ -137,6 +155,7 @@ abstract class TestCase extends Orchestra
             $table->string('CTCODE', 10);
             $table->string('CTNAME', 50)->nullable();
             $table->string('CTCOMP', 2)->default('1');
+            $table->string('CTDEPT', 10)->nullable();
             $table->string('CTDLTC', 1)->default('A');
             $table->primary(['CTCODE', 'CTCOMP']);
         });
