@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * Test fixture model for relationship tests.
@@ -85,5 +86,35 @@ class TestItemRelation extends Model
     public function categorySingle(): BelongsTo
     {
         return $this->belongsTo(TestCategory::class, 'ITCAT', 'CTCODE');
+    }
+
+    /**
+     * An item belongs to many tags (multi-column pivot).
+     */
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            TestTag::class,
+            'test_item_tag',
+            ['PTITEM', 'PTITCOMP'],
+            ['PTTAG', 'PTTAGCOMP'],
+            ['ITCODE', 'ITCOMP'],
+            ['TGCODE', 'TGCOMP']
+        );
+    }
+
+    /**
+     * An item belongs to many tags (using mapped names).
+     */
+    public function tagsMapped(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            TestTag::class,
+            'test_item_tag',
+            ['PTITEM', 'PTITCOMP'],
+            ['PTTAG', 'PTTAGCOMP'],
+            ['item_code', 'company_number'],
+            ['tag_code', 'company_number']
+        );
     }
 }

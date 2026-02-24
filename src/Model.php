@@ -19,6 +19,9 @@ use CodyJHeiser\Db2Eloquent\Concerns\HasDatabaseSchema;
  * - Extension table joins
  * - Auto filtering by delete_code and company_number
  * - Multi-column relationships (DB2-compatible)
+ *
+ * @method static \CodyJHeiser\Db2Eloquent\Builders\MappedBuilder unfiltered()
+ * @method static \CodyJHeiser\Db2Eloquent\Builders\MappedBuilder selectMapped()
  */
 abstract class Model extends EloquentModel
 {

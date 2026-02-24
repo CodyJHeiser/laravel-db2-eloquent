@@ -62,11 +62,29 @@ trait HasColumnMapping
     ];
 
     /**
+     * Cache for composite cast keys: maps first DB column to full composite key.
+     */
+    protected ?array $compositeCastCache = null;
+
+    /**
      * Initialize the trait on model instantiation.
-     * Adds default casts for mapped columns.
+     * Adds default casts for mapped columns and translates mapped cast keys.
      */
     public function initializeHasColumnMapping(): void
     {
+        // Translate mapped names in $casts to DB column names
+        $translated = [];
+        foreach ($this->casts as $key => $castType) {
+            if (str_contains($key, ',')) {
+                // Composite key: translate each part
+                $parts = array_map(fn($p) => $this->getDbColumn(trim($p)), explode(',', $key));
+                $translated[implode(',', $parts)] = $castType;
+            } else {
+                $translated[$this->getDbColumn($key)] = $castType;
+            }
+        }
+        $this->casts = $translated;
+
         // Add default casts for mapped columns
         foreach (static::$defaultMappedCasts as $mappedName => $castType) {
             $dbColumn = $this->getDbColumn($mappedName);
@@ -284,6 +302,7 @@ trait HasColumnMapping
 
     /**
      * Convert attributes to array with mapped column names.
+     * Also injects composite cast values keyed by the first column.
      */
     public function attributesToArray(): array
     {
@@ -291,6 +310,14 @@ trait HasColumnMapping
         $this->skipMappingInGetAttributes = true;
         $attributes = parent::attributesToArray();
         $this->skipMappingInGetAttributes = false;
+
+        // Inject composite cast values (keyed by first column name)
+        foreach ($this->getCasts() as $castKey => $castType) {
+            if (str_contains($castKey, ',')) {
+                $firstCol = trim(explode(',', $castKey)[0]);
+                $attributes[$firstCol] = $this->getCompositeCastValue($castKey);
+            }
+        }
 
         if ($this->applyMapsOnOutput && !empty($this->getAllMaps())) {
             return $this->applyMaps($attributes);
@@ -334,10 +361,72 @@ trait HasColumnMapping
     }
 
     /**
+     * Find the composite cast key where the given column is the first column.
+     * Returns the full composite key (e.g., 'SHDATE,SHTIME') or null.
+     */
+    protected function findCompositeCastKey(string $key): ?string
+    {
+        if ($this->compositeCastCache === null) {
+            $this->compositeCastCache = [];
+            foreach ($this->getCasts() as $castKey => $castType) {
+                if (str_contains($castKey, ',')) {
+                    $firstCol = trim(explode(',', $castKey)[0]);
+                    $this->compositeCastCache[$firstCol] = $castKey;
+                }
+            }
+        }
+
+        // Check the key directly
+        if (isset($this->compositeCastCache[$key])) {
+            return $this->compositeCastCache[$key];
+        }
+
+        // Check translated DB column
+        $dbKey = $this->getDbColumn($key);
+        if (isset($this->compositeCastCache[$dbKey])) {
+            return $this->compositeCastCache[$dbKey];
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the value of a composite cast.
+     */
+    protected function getCompositeCastValue(string $compositeKey): mixed
+    {
+        $caster = $this->resolveCasterClass($compositeKey);
+
+        return $caster->get($this, $compositeKey, null, $this->attributes);
+    }
+
+    /**
+     * Set the value of a composite cast.
+     */
+    protected function setCompositeCastValue(string $compositeKey, mixed $value): static
+    {
+        $caster = $this->resolveCasterClass($compositeKey);
+        $result = $caster->set($this, $compositeKey, $value, $this->attributes);
+
+        if (is_array($result)) {
+            $this->attributes = array_replace($this->attributes, $result);
+        }
+
+        return $this;
+    }
+
+    /**
      * Get an attribute - supports both mapped and DB column names.
+     * Also supports composite cast access via the first column name.
      */
     public function getAttribute($key)
     {
+        // Check if key is the first column of a composite cast
+        $compositeKey = $this->findCompositeCastKey($key);
+        if ($compositeKey !== null) {
+            return $this->getCompositeCastValue($compositeKey);
+        }
+
         // Check if key exists directly in attributes
         if (array_key_exists($key, $this->attributes)) {
             return parent::getAttribute($key);
@@ -346,6 +435,11 @@ trait HasColumnMapping
         // If key is a mapped name, translate to DB column
         $dbKey = $this->getDbColumn($key);
         if (array_key_exists($dbKey, $this->attributes)) {
+            // Check if DB key is first column of a composite cast
+            $compositeKey = $this->findCompositeCastKey($dbKey);
+            if ($compositeKey !== null) {
+                return $this->getCompositeCastValue($compositeKey);
+            }
             return parent::getAttribute($dbKey);
         }
 
@@ -361,11 +455,19 @@ trait HasColumnMapping
 
     /**
      * Set an attribute - always stores with DB column name.
+     * Supports composite cast setting via the first column name.
      */
     public function setAttribute($key, $value)
     {
         // Translate mapped name to DB column for storage
         $dbKey = $this->getDbColumn($key);
+
+        // Check if key is the first column of a composite cast
+        $compositeKey = $this->findCompositeCastKey($dbKey);
+        if ($compositeKey !== null) {
+            return $this->setCompositeCastValue($compositeKey, $value);
+        }
+
         return parent::setAttribute($dbKey, $value);
     }
 

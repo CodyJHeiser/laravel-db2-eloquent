@@ -1,5 +1,7 @@
 # Laravel DB2 Eloquent
 
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/codyjheiser/laravel-db2-eloquent.svg)](https://packagist.org/packages/codyjheiser/laravel-db2-eloquent)
+
 Laravel Eloquent extensions for IBM DB2 databases with column mapping, multi-column relationships, and auto-filtering.
 
 ## Table of Contents
@@ -12,6 +14,8 @@ Laravel Eloquent extensions for IBM DB2 databases with column mapping, multi-col
 - [Column Mapping](#column-mapping)
   - [Casts](#casts)
   - [IBM Date Cast](#ibm-date-cast)
+  - [IBM Time Cast](#ibm-time-cast)
+  - [IBM DateTime Cast](#ibm-datetime-cast)
 - [Automatic Filtering](#automatic-filtering)
 - [Multi-Column Relationships](#multi-column-relationships)
 - [Extensions (Joined Tables)](#extensions-joined-tables)
@@ -197,7 +201,7 @@ protected bool $applyMapsOnOutput = false;
 
 ### Casts
 
-Laravel casts must use **raw DB column names**, not mapped names:
+Casts can use either **raw DB column names** or **mapped names**:
 
 ```php
 class CommissionPricing extends Model
@@ -207,10 +211,10 @@ class CommissionPricing extends Model
         'PBPSLS' => 'pricing_sales',
     ];
 
-    // Casts use raw DB column names
+    // Either style works
     protected $casts = [
-        'PBCMP' => 'integer',
-        'PBPSLS' => 'decimal:2',
+        'PBCMP' => 'integer',           // Raw DB column name
+        'pricing_sales' => 'decimal:2',  // Mapped name
     ];
 }
 ```
@@ -258,6 +262,99 @@ $call->scheduled_date->diffForHumans();   // "2 days ago"
 $call->scheduled_date = Carbon::now();
 $call->scheduled_date = '2025-12-25';
 $call->scheduled_date = 20251225;
+```
+
+### IBM Time Cast
+
+IBM stores times as integers in `Hms` format (e.g., `73733` = `07:37:33`). Use the `IbmTime` cast to convert to Carbon or a formatted string:
+
+```php
+use CodyJHeiser\Db2Eloquent\Casts\IbmTime;
+
+protected $casts = [
+    // Returns Carbon instance
+    'SHTMCD' => IbmTime::class,
+
+    // Returns formatted string
+    'SHTMCD' => IbmTime::class.':time',       // "07:37:33"
+    'SHTMCD' => IbmTime::class.':H:i:s',      // "07:37:33"
+    'SHTMCD' => IbmTime::class.':12h',         // "7:37:33 AM"
+    'SHTMCD' => IbmTime::class.':short',       // "07:37"
+];
+```
+
+**Format shortcuts:**
+- `:time` → `H:i:s`
+- `:12h` → `g:i:s A`
+- `:short` → `H:i`
+- Or use any custom PHP date format string
+
+**Carbon instance (no format):**
+
+```php
+$call->scheduled_time;                    // Carbon instance
+$call->scheduled_time->format('g:i A');   // "7:37 AM"
+
+// Setting accepts Carbon, string, or integer
+$call->scheduled_time = Carbon::createFromTime(14, 30, 0);
+$call->scheduled_time = '14:30:52';
+$call->scheduled_time = 143052;
+```
+
+### IBM DateTime Cast
+
+Combine date and time into a single Carbon instance. Works with a single datetime column or two separate date + time columns:
+
+```php
+use CodyJHeiser\Db2Eloquent\Casts\IbmDateTime;
+
+protected $casts = [
+    // Single datetime column (e.g., 20251217143052)
+    'SHDTTM' => IbmDateTime::class,
+
+    // Two columns: date (Ymd) + time (Hms)
+    'SHDATE,SHTIME' => IbmDateTime::class,
+
+    // With mapped column names
+    'scheduled_date,scheduled_time' => IbmDateTime::class,
+
+    // With output format
+    'SHDATE,SHTIME' => IbmDateTime::class.':datetime',     // "2025-12-17 14:30:52"
+    'SHDATE,SHTIME' => IbmDateTime::class.':Y-m-d H:i:s',  // "2025-12-17 14:30:52"
+    'SHDATE,SHTIME' => IbmDateTime::class.':us',            // "12/17/2025 2:30:52 PM"
+];
+```
+
+**Format shortcuts:**
+- `:datetime` → `Y-m-d H:i:s`
+- `:date` → `Y-m-d`
+- `:us` → `m/d/Y g:i:s A`
+- `:eu` → `d/m/Y H:i:s`
+- Or use any custom PHP date format string
+
+**Two-column access:**
+
+```php
+// Access via the first column name (or its mapped name)
+$schedule->SHDATE;           // Carbon instance with date + time combined
+$schedule->scheduled_date;   // Same Carbon instance
+
+// Setting updates both columns
+$schedule->scheduled_date = Carbon::now();
+$schedule->scheduled_date = '2025-12-17 14:30:52';
+
+// toArray() includes the combined value under the first column's mapped name
+$schedule->toArray();  // ['scheduled_date' => Carbon(...), ...]
+```
+
+**Custom input formats:**
+
+```php
+// Specify custom date/time input formats (default: Ymd, His)
+'SHDATE,SHTIME' => IbmDateTime::class.':Ymd,His',
+
+// Custom input + output format
+'SHDATE,SHTIME' => IbmDateTime::class.':Ymd,His,Y-m-d H:i:s',
 ```
 
 ### Duplicate Mapped Names

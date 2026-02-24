@@ -43,6 +43,7 @@ abstract class TestCase extends Orchestra
         if ($this->useDb2Connection()) {
             $app['config']->set('database.connections.vai', [
                 'driver' => 'db2',
+                'driverName' => env('IBM_DB_DRIVER', '{IBM i Access ODBC Driver}'),
                 'host' => env('IBM_DB_HOST'),
                 'port' => env('IBM_DB_PORT', 50000),
                 'database' => env('IBM_DB_DATABASE'),
@@ -166,6 +167,33 @@ abstract class TestCase extends Orchestra
             $table->string('ITCAT', 10)->nullable();
             $table->string('ITCOMP', 2)->default('1');
             $table->string('ITDLTC', 1)->default('A');
+        });
+
+        // Schedule table for IbmDateTime composite cast tests
+        $this->app['db']->connection('testing')->getSchemaBuilder()->create('test_schedules', function ($table) {
+            $table->string('SHCODE', 10)->primary();
+            $table->string('SHDESC', 50)->nullable();
+            $table->integer('SHDATE')->default(0);
+            $table->integer('SHTIME')->default(0);
+            $table->string('SHCOMP', 2)->default('1');
+            $table->string('SHDLTC', 1)->default('A');
+        });
+
+        // Pivot table for belongsToMany tests (items <-> tags with composite keys)
+        $this->app['db']->connection('testing')->getSchemaBuilder()->create('test_tags', function ($table) {
+            $table->string('TGCODE', 10);
+            $table->string('TGNAME', 50)->nullable();
+            $table->string('TGCOMP', 2)->default('1');
+            $table->string('TGDLTC', 1)->default('A');
+            $table->primary(['TGCODE', 'TGCOMP']);
+        });
+
+        $this->app['db']->connection('testing')->getSchemaBuilder()->create('test_item_tag', function ($table) {
+            $table->string('PTITEM', 20);
+            $table->string('PTITCOMP', 2);
+            $table->string('PTTAG', 10);
+            $table->string('PTTAGCOMP', 2);
+            $table->primary(['PTITEM', 'PTITCOMP', 'PTTAG', 'PTTAGCOMP']);
         });
     }
 

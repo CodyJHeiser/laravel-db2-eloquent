@@ -9,3 +9,4 @@ coverage/
 *.swo
 .DS_Store
 .env
+DEV.md

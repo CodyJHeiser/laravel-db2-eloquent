@@ -316,6 +316,55 @@ class MappedBuilder extends Builder
     }
 
     /**
+     * Determine if any rows exist for the current query.
+     *
+     * Overrides the default passthru to handle DB2's compileExists()
+     * which returns a simple "SELECT 1 LIMIT 1" instead of
+     * "SELECT EXISTS(...) AS exists". DB2 also uppercases unquoted
+     * column aliases, so accessing $results['exists'] fails.
+     */
+    public function exists(): bool
+    {
+        $query = $this->toBase();
+
+        $query->applyBeforeQueryCallbacks();
+
+        $results = $query->connection->select(
+            $query->grammar->compileExists($query),
+            $query->getBindings(),
+            ! $query->useWritePdo
+        );
+
+        if (isset($results[0])) {
+            $row = (array) $results[0];
+
+            // Standard Laravel returns an 'exists' key, but DB2 grammar
+            // compiles to "SELECT 1 LIMIT 1" (no 'exists' alias).
+            // Check for both lowercase and uppercase, then fall back
+            // to the first value in the row.
+            if (array_key_exists('exists', $row)) {
+                return (bool) $row['exists'];
+            }
+
+            if (array_key_exists('EXISTS', $row)) {
+                return (bool) $row['EXISTS'];
+            }
+
+            return (bool) reset($row);
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine if no rows exist for the current query.
+     */
+    public function doesntExist(): bool
+    {
+        return ! $this->exists();
+    }
+
+    /**
      * @inheritdoc
      */
     public function insert(array $values)

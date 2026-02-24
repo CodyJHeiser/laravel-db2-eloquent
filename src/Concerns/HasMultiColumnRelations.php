@@ -2,6 +2,7 @@
 
 namespace CodyJHeiser\Db2Eloquent\Concerns;
 
+use CodyJHeiser\Db2Eloquent\Relations\BelongsToManyMultiple;
 use CodyJHeiser\Db2Eloquent\Relations\BelongsToMultiple;
 use CodyJHeiser\Db2Eloquent\Relations\HasManyMultiple;
 use CodyJHeiser\Db2Eloquent\Relations\HasManyThroughMultiple;
@@ -218,6 +219,76 @@ trait HasMultiColumnRelations
 
         // Standard single-column relationship
         return parent::hasOneThrough($related, $through, $firstKey, $secondKey, $localKey, $secondLocalKey);
+    }
+
+    /**
+     * Define a belongs-to-many (pivot table) relationship.
+     * Supports array keys for multi-column relationships (DB2-compatible).
+     * Supports mapped column names (e.g., 'item_number' instead of 'ICITEM').
+     * If parentKey is omitted, assumes same mapped names as foreignPivotKey.
+     * If relatedKey is omitted, assumes same mapped names as relatedPivotKey.
+     *
+     * @param string $related
+     * @param string|null $table
+     * @param string|array|null $foreignPivotKey
+     * @param string|array|null $relatedPivotKey
+     * @param string|array|null $parentKey
+     * @param string|array|null $relatedKey
+     * @param string|null $relation
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany|BelongsToManyMultiple
+     */
+    public function belongsToMany($related, $table = null, $foreignPivotKey = null, $relatedPivotKey = null, $parentKey = null, $relatedKey = null, $relation = null)
+    {
+        $instance = $this->newRelatedInstance($related);
+
+        // If parentKey not specified, assume same mapped names as foreignPivotKey
+        if ($foreignPivotKey !== null && $parentKey === null) {
+            $parentKey = $foreignPivotKey;
+        }
+
+        // If relatedKey not specified, assume same mapped names as relatedPivotKey
+        if ($relatedPivotKey !== null && $relatedKey === null) {
+            $relatedKey = $relatedPivotKey;
+        }
+
+        // Translate mapped column names to DB columns
+        if ($foreignPivotKey !== null) {
+            $foreignPivotKey = $this->translateRelationColumns($foreignPivotKey, $this);
+        }
+        if ($relatedPivotKey !== null) {
+            $relatedPivotKey = $this->translateRelationColumns($relatedPivotKey, $instance);
+        }
+        if ($parentKey !== null) {
+            $parentKey = $this->translateRelationColumns($parentKey, $this);
+        }
+        if ($relatedKey !== null) {
+            $relatedKey = $this->translateRelationColumns($relatedKey, $instance);
+        }
+
+        // If arrays are passed, use multi-column relationship
+        if (is_array($foreignPivotKey) && is_array($relatedPivotKey)) {
+            if (is_null($relation)) {
+                $relation = $this->guessBelongsToManyRelation();
+            }
+
+            if (is_null($table)) {
+                $table = $this->joiningTable($related, $instance);
+            }
+
+            return new BelongsToManyMultiple(
+                $instance->newQuery(),
+                $this,
+                $table,
+                $foreignPivotKey,
+                $relatedPivotKey,
+                $parentKey,
+                $relatedKey,
+                $relation
+            );
+        }
+
+        // Standard single-column relationship
+        return parent::belongsToMany($related, $table, $foreignPivotKey, $relatedPivotKey, $parentKey, $relatedKey, $relation);
     }
 
     /**
