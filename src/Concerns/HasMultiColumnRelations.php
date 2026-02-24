@@ -48,6 +48,12 @@ trait HasMultiColumnRelations
     {
         $instance = $this->newRelatedInstance($related);
 
+        // Associative array: keys = foreign columns, values = owner columns
+        if (is_array($foreignKey) && $ownerKey === null && !array_is_list($foreignKey)) {
+            $ownerKey = array_values($foreignKey);
+            $foreignKey = array_keys($foreignKey);
+        }
+
         // If ownerKey not specified, assume same mapped names as foreignKey
         if ($foreignKey !== null && $ownerKey === null) {
             $ownerKey = $foreignKey;
@@ -95,6 +101,12 @@ trait HasMultiColumnRelations
     {
         $instance = $this->newRelatedInstance($related);
 
+        // Associative array: keys = foreign columns, values = local columns
+        if (is_array($foreignKey) && $localKey === null && !array_is_list($foreignKey)) {
+            $localKey = array_values($foreignKey);
+            $foreignKey = array_keys($foreignKey);
+        }
+
         // If localKey not specified, assume same mapped names as foreignKey
         if ($foreignKey !== null && $localKey === null) {
             $localKey = $foreignKey;
@@ -136,6 +148,13 @@ trait HasMultiColumnRelations
     public function hasOne($related, $foreignKey = null, $localKey = null)
     {
         $instance = $this->newRelatedInstance($related);
+
+        // Associative array: keys = foreign columns, values = local columns
+        // e.g. ['company_number' => 'company_number', 'key_value' => 'customer_number']
+        if (is_array($foreignKey) && $localKey === null && !array_is_list($foreignKey)) {
+            $localKey = array_values($foreignKey);
+            $foreignKey = array_keys($foreignKey);
+        }
 
         // If localKey not specified, assume same mapped names as foreignKey
         if ($foreignKey !== null && $localKey === null) {

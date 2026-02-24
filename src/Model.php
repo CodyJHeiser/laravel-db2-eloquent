@@ -22,6 +22,8 @@ use CodyJHeiser\Db2Eloquent\Concerns\HasDatabaseSchema;
  *
  * @method static \CodyJHeiser\Db2Eloquent\Builders\MappedBuilder unfiltered()
  * @method static \CodyJHeiser\Db2Eloquent\Builders\MappedBuilder selectMapped()
+ * @method static \CodyJHeiser\Db2Eloquent\Builders\MappedBuilder withExtensions(?array $only = null)
+ * @method static \CodyJHeiser\Db2Eloquent\Builders\MappedBuilder withExtension(string $extTable)
  */
 abstract class Model extends EloquentModel
 {
