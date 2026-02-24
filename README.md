@@ -18,6 +18,7 @@ Laravel Eloquent extensions for IBM DB2 databases with column mapping, multi-col
   - [IBM DateTime Cast](#ibm-datetime-cast)
 - [Automatic Filtering](#automatic-filtering)
 - [Multi-Column Relationships](#multi-column-relationships)
+- [Union ALL (Combined Tables)](#union-all-combined-tables)
 - [Extensions (Joined Tables)](#extensions-joined-tables)
 - [Query Logging](#query-logging)
 - [Helper Methods](#helper-methods)
@@ -460,6 +461,125 @@ Supported relationship types:
 - `hasOne($related, $foreignKey)` - localKey defaults to same as foreignKey
 
 Column names are automatically translated to DB columns using each model's `$maps`. The trait generates DB2-compatible SQL using `AND`/`OR` conditions instead of tuple `IN` syntax.
+
+## Union ALL (Combined Tables)
+
+IBM DB2 tables often have a "live" and "history" version with identical columns (e.g., `SBSCHD` for live service calls and `SBHSHD` for history). The `HasUnionSources` trait lets you query both tables as one unified, read-only model via `UNION ALL`.
+
+### Define a Base Union Model
+
+The base class uses the trait and defines the shared columns, casts, and relationships. Only columns common to all source tables should be in `$maps`:
+
+```php
+use CodyJHeiser\Db2Eloquent\Model;
+use CodyJHeiser\Db2Eloquent\Concerns\HasUnionSources;
+
+class ServiceCallAll extends Model
+{
+    use HasUnionSources;
+
+    protected $connection = 'vai';
+    protected string $schema = 'R60FILES';
+    protected $table = 'SBSCHD';  // Fallback for connection/schema resolution
+
+    protected array $unionSources = [
+        ServiceCallLive::class,
+        ServiceCallHistory::class,
+    ];
+
+    // Only shared columns — one table may have extra columns you don't need here
+    protected array $maps = [
+        'SHCMP'  => 'company_number',
+        'SHCUST' => 'customer_number',
+        'SHCLNO' => 'call_number',
+        'SHCLST' => 'status',
+        'SHCLDT' => 'call_date',
+        'SHCITY' => 'city',
+        'SHSTAT' => 'state',
+    ];
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class, ['customer_number']);
+    }
+}
+```
+
+### Extend Into Individual Tables
+
+Child classes extend the base and override `$table`. They inherit all maps, casts, and relationships — no code duplication. The trait automatically detects child classes and skips all union/read-only behavior for them, so they work as normal models:
+
+```php
+class ServiceCallLive extends ServiceCallAll
+{
+    protected $table = 'SBSCHD';
+
+    // Optionally override $maps to add columns specific to this table
+    // Optionally override $casts for table-specific cast behavior
+}
+
+class ServiceCallHistory extends ServiceCallAll
+{
+    protected $table = 'SBHSHD';
+}
+```
+
+### Query the Union
+
+The union model works like any other model for reads. All standard query methods work:
+
+```php
+// Returns results from BOTH tables
+ServiceCallAll::where('status', 'Q')->limit(10)->get();
+ServiceCallAll::where('call_number', 12345)->first();
+ServiceCallAll::exists();
+
+// Auto-filtering works — applied inside each source query
+ServiceCallAll::get();                    // Active records, company 1, from both tables
+ServiceCallAll::unfiltered()->get();      // All records from both tables
+ServiceCallAll::withInactive()->get();    // Include deleted records from both tables
+```
+
+### Source Identification
+
+Every row includes a `_source` column identifying which table it came from:
+
+```php
+$record = ServiceCallAll::first();
+$record->_source;  // "R60FILES.SBSCHD" or "R60FILES.SBHSHD"
+
+$record->toArray();
+// [
+//     'call_number' => 5477830,
+//     'customer_number' => '0499769',
+//     'status' => 'S',
+//     '_source' => 'R60FILES.SBSCHD',
+//     ...
+// ]
+```
+
+### Read-Only Protection
+
+The union model is read-only. All write operations throw `ReadOnlyModelException`:
+
+```php
+use CodyJHeiser\Db2Eloquent\Exceptions\ReadOnlyModelException;
+
+ServiceCallAll::query()->insert([...]);   // throws ReadOnlyModelException
+ServiceCallAll::query()->update([...]);   // throws ReadOnlyModelException
+$record->save();                          // throws ReadOnlyModelException
+$record->delete();                        // throws ReadOnlyModelException
+```
+
+Child classes (Live, History) are **not** read-only — they work as normal models.
+
+### How It Works
+
+1. The trait rewrites `$maps` to identity mappings (`call_number => call_number`) so the outer query operates on already-aliased names
+2. Each source gets its own `SELECT DB_COL AS mapped_name FROM table` with auto-filters applied individually
+3. Sources are joined with `UNION ALL` as a `FROM` subquery
+4. A `_source` literal column is added to each source identifying the origin table
+5. `isUnionModel()` uses reflection to detect whether the concrete class directly uses the trait — children that inherit it behave as normal models
 
 ## Extensions (Joined Tables)
 

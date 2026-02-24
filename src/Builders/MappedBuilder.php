@@ -26,7 +26,7 @@ class MappedBuilder extends Builder
     /**
      * Track an alias for case normalization.
      */
-    protected function trackAlias(string $alias): void
+    public function trackAlias(string $alias): void
     {
         $this->selectAliases[strtoupper($alias)] = $alias;
     }

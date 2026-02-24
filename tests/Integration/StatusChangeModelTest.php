@@ -4,11 +4,14 @@ namespace CodyJHeiser\Db2Eloquent\Tests\Integration;
 
 use Carbon\Carbon;
 use CodyJHeiser\Db2Eloquent\Builders\MappedBuilder;
+use CodyJHeiser\Db2Eloquent\Tests\Fixtures\Integration\Customer;
+use CodyJHeiser\Db2Eloquent\Tests\Fixtures\Integration\ServiceCallLive;
 use CodyJHeiser\Db2Eloquent\Tests\Fixtures\Integration\StatusChange;
 use CodyJHeiser\Db2Eloquent\Tests\Fixtures\Integration\StatusChangeDateTime;
 use CodyJHeiser\Db2Eloquent\Tests\Fixtures\Integration\StatusChangeDateTimeFormatted;
 use CodyJHeiser\Db2Eloquent\Tests\TestCase;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Live integration tests against R60FSDTA.FSZUPSCLOG.
@@ -59,8 +62,8 @@ class StatusChangeModelTest extends TestCase
         // Should have mapped column names, not raw DB names
         $this->assertArrayHasKey('change_date', $array);
         $this->assertArrayHasKey('change_time', $array);
-        $this->assertArrayHasKey('customer', $array);
-        $this->assertArrayHasKey('salesrep', $array);
+        $this->assertArrayHasKey('customer_number', $array);
+        $this->assertArrayHasKey('tech_id', $array);
         $this->assertArrayHasKey('status_code', $array);
 
         // Should NOT have raw DB column names
@@ -215,7 +218,7 @@ class StatusChangeModelTest extends TestCase
     public function test_doesnt_exist_works_on_live_table(): void
     {
         $doesntExist = $this->query(StatusChange::class)
-            ->where('customer', 'ZZ9')
+            ->where('customer_number', 'ZZ9')
             ->doesntExist();
 
         $this->assertTrue($doesntExist);
@@ -245,5 +248,101 @@ class StatusChangeModelTest extends TestCase
             $this->assertDoesNotMatchRegularExpression('/^[A-Z]{3,}$/', $key,
                 "Key '{$key}' looks like a raw DB column name, expected mapped name");
         }
+    }
+
+    // ==================== RELATIONSHIPS ====================
+
+    public function test_service_call_live_relationship_query_builds(): void
+    {
+        $record = $this->query(StatusChange::class)->limit(1)->first();
+        $this->assertNotNull($record, 'No data in FSZUPSCLOG table');
+
+        $query = $record->serviceCallLive();
+        $this->assertNotNull($query);
+        $this->assertNotNull($query->toSql());
+    }
+
+    public function test_service_call_live_relationship_returns_data(): void
+    {
+        // Find a call_number that exists in both tables using a raw query
+        $match = DB::connection('vai')->selectOne(
+            'SELECT z.ZSCCLNO FROM R60FSDTA.FSZUPSCLOG z '
+            . 'INNER JOIN R60FILES.SBSCHD s ON s.SHCLNO = z.ZSCCLNO AND s.SHCMP = 1 '
+            . 'WHERE z.ZSCCLNO > 0 FETCH FIRST 1 ROWS ONLY'
+        );
+
+        if ($match === null) {
+            $this->markTestSkipped('No overlapping call_number between FSZUPSCLOG and SBSCHD');
+        }
+
+        $statusChange = $this->query(StatusChange::class)
+            ->where('call_number', $match->ZSCCLNO)
+            ->first();
+        $this->assertNotNull($statusChange);
+
+        $result = $statusChange->serviceCallLive()->first();
+
+        $this->assertNotNull($result, "Relationship returned null for call_number: {$match->ZSCCLNO}");
+        $this->assertInstanceOf(ServiceCallLive::class, $result);
+        $this->assertEquals($statusChange->call_number, $result->call_number);
+    }
+
+    public function test_customer_through_service_call_relationship_query_builds(): void
+    {
+        $record = $this->query(StatusChange::class)
+            ->where('call_number', '>', 0)
+            ->limit(1)
+            ->first();
+        $this->assertNotNull($record, 'No data in FSZUPSCLOG table');
+
+        $query = $record->customer();
+        $this->assertNotNull($query);
+        $this->assertNotNull($query->toSql());
+    }
+
+    public function test_customer_through_service_call_returns_data(): void
+    {
+        // Find a call_number that exists in both tables and has a customer
+        $match = DB::connection('vai')->selectOne(
+            'SELECT z.ZSCCLNO, s.SHCUST FROM R60FSDTA.FSZUPSCLOG z '
+            . 'INNER JOIN R60FILES.SBSCHD s ON s.SHCLNO = z.ZSCCLNO AND s.SHCMP = 1 '
+            . 'INNER JOIN R60FILES.VARCUST c ON c.RMCUST = s.SHCUST AND c.RMCMP = 1 '
+            . 'WHERE z.ZSCCLNO > 0 FETCH FIRST 1 ROWS ONLY'
+        );
+
+        if ($match === null) {
+            $this->markTestSkipped('No overlapping call_number with customer data');
+        }
+
+        $statusChange = $this->query(StatusChange::class)
+            ->where('call_number', $match->ZSCCLNO)
+            ->first();
+        $this->assertNotNull($statusChange);
+
+        $customer = $statusChange->customer()->first();
+
+        $this->assertNotNull($customer, "customer() returned null for call_number: {$match->ZSCCLNO}");
+        $this->assertInstanceOf(Customer::class, $customer);
+        $this->assertNotEmpty($customer->customer_number);
+        $this->assertNotEmpty($customer->name);
+    }
+
+    public function test_service_call_customer_relationship_returns_data(): void
+    {
+        // Test ServiceCallLive -> Customer belongsTo
+        $serviceCall = $this->query(ServiceCallLive::class)
+            ->where('customer_number', '!=', '')
+            ->limit(1)
+            ->first();
+        $this->assertNotNull($serviceCall, 'No service calls with customer_number');
+
+        $customer = $serviceCall->customer()->first();
+
+        if ($customer === null) {
+            $this->markTestSkipped('No matching customer for customer_number: ' . $serviceCall->customer_number);
+        }
+
+        $this->assertInstanceOf(Customer::class, $customer);
+        $this->assertEquals($serviceCall->customer_number, $customer->customer_number);
     }
 }

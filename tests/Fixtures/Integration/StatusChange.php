@@ -31,10 +31,27 @@ class StatusChange extends Model
         'ZSCZUPJID' => 'zuper_job_id',
         'ZSCZUPCID' => 'zuper_customer_id',
         'ZSCCLNO'   => 'call_number',
-        'ZSCSLSM'   => 'salesrep',
-        'ZSCCUST'   => 'customer',
+        'ZSCSLSM'   => 'tech_id',
+        'ZSCCUST'   => 'customer_number',
         'ZSCDATE'   => 'change_date',
         'ZSCTIME'   => 'change_time',
         'ZSCSTATUS' => 'status_code',
     ];
+
+    public function serviceCallLive()
+    {
+        return $this->belongsTo(ServiceCallLive::class, ['call_number']);
+    }
+
+    public function customer()
+    {
+        return $this->hasOneThrough(
+            Customer::class,
+            ServiceCallLive::class,
+            ['call_number'],
+            ['customer_number'],
+            ['call_number'],
+            ['customer_number']
+        );
+    }
 }

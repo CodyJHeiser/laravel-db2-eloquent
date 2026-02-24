@@ -13,12 +13,8 @@ abstract class TestCase extends Orchestra
     {
         parent::setUp();
 
-        if ($this->useDatabase) {
-            if ($this->useDb2Connection()) {
-                // Real DB2 - no setup needed, use existing tables
-            } elseif ($this->canUseSqlite()) {
-                $this->setUpSqliteDatabase();
-            }
+        if ($this->useDatabase && $this->canUseSqlite()) {
+            $this->setUpSqliteDatabase();
         }
     }
 
