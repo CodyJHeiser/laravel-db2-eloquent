@@ -43,6 +43,11 @@ class StatusChange extends Model
         return $this->belongsTo(ServiceCallLive::class, ['call_number']);
     }
 
+    public function serviceCall()
+    {
+        return $this->belongsTo(ServiceCallAll::class, ['call_number']);
+    }
+
     public function customer()
     {
         return $this->hasOneThrough(

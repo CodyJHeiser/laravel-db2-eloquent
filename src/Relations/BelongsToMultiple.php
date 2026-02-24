@@ -41,10 +41,8 @@ class BelongsToMultiple extends BelongsTo
     public function addConstraints()
     {
         if (static::$constraints) {
-            $table = $this->related->getTable();
-
             foreach ($this->ownerKeys as $i => $ownerKey) {
-                $this->query->where($table . '.' . $ownerKey, '=', $this->child->{$this->foreignKeys[$i]});
+                $this->query->where($this->related->qualifyColumn($ownerKey), '=', $this->child->{$this->foreignKeys[$i]});
             }
         }
     }
@@ -55,8 +53,6 @@ class BelongsToMultiple extends BelongsTo
      */
     public function addEagerConstraints(array $models)
     {
-        $table = $this->related->getTable();
-
         // Collect unique key combinations
         $keyCombinations = [];
         foreach ($models as $model) {
@@ -69,15 +65,16 @@ class BelongsToMultiple extends BelongsTo
         }
 
         // Build OR conditions for each key combination
-        $this->query->where(function ($query) use ($keyCombinations, $table) {
+        $related = $this->related;
+        $this->query->where(function ($query) use ($keyCombinations, $related) {
             $first = true;
             foreach ($keyCombinations as $keys) {
                 $method = $first ? 'where' : 'orWhere';
                 $first = false;
 
-                $query->{$method}(function ($q) use ($keys, $table) {
+                $query->{$method}(function ($q) use ($keys, $related) {
                     foreach ($this->ownerKeys as $i => $ownerKey) {
-                        $q->where($table . '.' . $ownerKey, '=', $keys[$i]);
+                        $q->where($related->qualifyColumn($ownerKey), '=', $keys[$i]);
                     }
                 });
             }
@@ -143,15 +140,12 @@ class BelongsToMultiple extends BelongsTo
     {
         $query->select($columns);
 
-        $parentTable = $this->child->getTable();
-        $relatedTable = $this->related->getTable();
-
         // Add all key constraints for multi-column relationship
         foreach ($this->foreignKeys as $i => $foreignKey) {
             $query->whereColumn(
-                $parentTable . '.' . $foreignKey,
+                $this->child->qualifyColumn($foreignKey),
                 '=',
-                $relatedTable . '.' . $this->ownerKeys[$i]
+                $this->related->qualifyColumn($this->ownerKeys[$i])
             );
         }
 

@@ -5,6 +5,7 @@ namespace CodyJHeiser\Db2Eloquent\Tests\Integration;
 use Carbon\Carbon;
 use CodyJHeiser\Db2Eloquent\Builders\MappedBuilder;
 use CodyJHeiser\Db2Eloquent\Tests\Fixtures\Integration\Customer;
+use CodyJHeiser\Db2Eloquent\Tests\Fixtures\Integration\ServiceCallAll;
 use CodyJHeiser\Db2Eloquent\Tests\Fixtures\Integration\ServiceCallLive;
 use CodyJHeiser\Db2Eloquent\Tests\Fixtures\Integration\StatusChange;
 use CodyJHeiser\Db2Eloquent\Tests\Fixtures\Integration\StatusChangeDateTime;
@@ -326,6 +327,78 @@ class StatusChangeModelTest extends TestCase
         $this->assertNotEmpty($customer->customer_number);
         $this->assertNotEmpty($customer->name);
     }
+
+    // ==================== UNION MODEL RELATIONSHIP ====================
+
+    public function test_service_call_union_relationship_query_builds(): void
+    {
+        $record = $this->query(StatusChange::class)->limit(1)->first();
+        $this->assertNotNull($record, 'No data in FSZUPSCLOG table');
+
+        $query = $record->serviceCall();
+        $this->assertNotNull($query);
+        $this->assertNotNull($query->toSql());
+    }
+
+    public function test_service_call_union_relationship_returns_data(): void
+    {
+        // Find a call_number that exists in FSZUPSCLOG and in either live or history
+        $match = DB::connection('vai')->selectOne(
+            'SELECT z.ZSCCLNO FROM R60FSDTA.FSZUPSCLOG z '
+            . 'INNER JOIN R60FILES.SBSCHD s ON s.SHCLNO = z.ZSCCLNO AND s.SHCMP = 1 '
+            . 'WHERE z.ZSCCLNO > 0 FETCH FIRST 1 ROWS ONLY'
+        );
+
+        if ($match === null) {
+            $this->markTestSkipped('No overlapping call_number between FSZUPSCLOG and SBSCHD');
+        }
+
+        $statusChange = $this->query(StatusChange::class)
+            ->where('call_number', $match->ZSCCLNO)
+            ->first();
+        $this->assertNotNull($statusChange);
+
+        $result = $statusChange->serviceCall()->first();
+
+        $this->assertNotNull($result, "serviceCall() returned null for call_number: {$match->ZSCCLNO}");
+        $this->assertInstanceOf(ServiceCallAll::class, $result);
+        $this->assertEquals($statusChange->call_number, $result->call_number);
+    }
+
+    public function test_with_where_has_service_call_union(): void
+    {
+        $result = StatusChange::unfiltered()
+            ->withWhereHas('serviceCall')
+            ->limit(1)
+            ->first();
+
+        $this->assertNotNull($result, 'withWhereHas(serviceCall) returned no results');
+        $this->assertInstanceOf(StatusChange::class, $result);
+        $this->assertNotNull($result->call_number);
+
+        // The eager-loaded relation should be present
+        $this->assertTrue($result->relationLoaded('serviceCall'));
+        $this->assertNotNull($result->serviceCall);
+        $this->assertInstanceOf(ServiceCallAll::class, $result->serviceCall);
+    }
+
+    public function test_where_has_service_call_union_filters_correctly(): void
+    {
+        // whereHas on the union model should only return status changes that have a matching service call
+        $withMatch = StatusChange::unfiltered()
+            ->whereHas('serviceCall')
+            ->limit(5)
+            ->get();
+
+        $this->assertNotEmpty($withMatch, 'whereHas(serviceCall) returned no results');
+
+        foreach ($withMatch as $record) {
+            $this->assertNotNull($record->call_number);
+            $this->assertGreaterThan(0, $record->call_number);
+        }
+    }
+
+    // ==================== SERVICE CALL CUSTOMER ====================
 
     public function test_service_call_customer_relationship_returns_data(): void
     {

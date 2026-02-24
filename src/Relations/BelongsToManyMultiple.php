@@ -73,12 +73,10 @@ class BelongsToManyMultiple extends BelongsToMany
     {
         $query = $query ?: $this->query;
 
-        $relatedTable = $this->related->getTable();
-
-        $query->join($this->table, function ($join) use ($relatedTable) {
+        $query->join($this->table, function ($join) {
             foreach ($this->relatedKeys as $i => $relatedKey) {
                 $join->on(
-                    $relatedTable . '.' . $relatedKey,
+                    $this->related->qualifyColumn($relatedKey),
                     '=',
                     $this->table . '.' . $this->relatedPivotKeys[$i]
                 );
@@ -224,11 +222,9 @@ class BelongsToManyMultiple extends BelongsToMany
 
         $query->select($columns);
 
-        $parentTable = $this->parent->getTable();
-
         foreach ($this->foreignPivotKeys as $i => $foreignPivotKey) {
             $query->whereColumn(
-                $parentTable . '.' . $this->parentKeys[$i],
+                $this->parent->qualifyColumn($this->parentKeys[$i]),
                 '=',
                 $this->qualifyPivotColumn($foreignPivotKey)
             );

@@ -132,6 +132,11 @@ trait HasUnionSources
             /** @var \CodyJHeiser\Db2Eloquent\Model $sourceInstance */
             $sourceInstance = new $sourceClass;
 
+            // Propagate testing mode so source queries use the test schema
+            if (property_exists($this, 'useTestSchema') && $this->useTestSchema) {
+                $sourceInstance->useTestSchema = true;
+            }
+
             // Build SELECT with aliases: DB_COL AS mapped_name
             $selectColumns = [];
             foreach ($sourceMap as $dbCol => $mappedName) {
@@ -215,6 +220,28 @@ trait HasUnionSources
     public function getSourceColumnMap(): array
     {
         return $this->sourceColumnMap;
+    }
+
+    /**
+     * Qualify a column with the table name.
+     * For union models, use the union alias instead of the real table name
+     * so that relationship subqueries (whereHas, withWhereHas, etc.) reference
+     * the UNION ALL subquery alias rather than the underlying table.
+     */
+    public function qualifyColumn($column): string
+    {
+        if ($this->isUnionModel()) {
+            $alias = $this->unionAlias ?? 'union_view';
+
+            // If the column already has a qualifier, strip it
+            if (str_contains($column, '.')) {
+                $column = last(explode('.', $column));
+            }
+
+            return $alias . '.' . $column;
+        }
+
+        return parent::qualifyColumn($column);
     }
 
     // ==================== WRITE PREVENTION ====================

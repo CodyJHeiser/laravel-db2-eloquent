@@ -94,10 +94,8 @@ class HasManyThroughMultiple extends HasManyThrough
         $this->performJoin();
 
         if (static::$constraints) {
-            $throughTable = $this->throughParent->getTable();
-
             foreach ($this->firstKeys as $i => $firstKey) {
-                $this->query->where($throughTable . '.' . $firstKey, '=', $localValues[$i]);
+                $this->query->where($this->throughParent->qualifyColumn($firstKey), '=', $localValues[$i]);
             }
         }
     }
@@ -110,12 +108,11 @@ class HasManyThroughMultiple extends HasManyThrough
         $query = $query ?: $this->query;
 
         $throughTable = $this->throughParent->getTable();
-        $relatedTable = $this->related->getTable();
 
-        $query->join($throughTable, function ($join) use ($throughTable, $relatedTable) {
+        $query->join($throughTable, function ($join) use ($throughTable) {
             foreach ($this->secondLocalKeys as $i => $secondLocalKey) {
                 $join->on(
-                    $relatedTable . '.' . $this->secondKeys[$i],
+                    $this->related->qualifyColumn($this->secondKeys[$i]),
                     '=',
                     $throughTable . '.' . $secondLocalKey
                 );
@@ -128,8 +125,6 @@ class HasManyThroughMultiple extends HasManyThrough
      */
     public function addEagerConstraints(array $models)
     {
-        $throughTable = $this->throughParent->getTable();
-
         // Collect unique key combinations
         $keyCombinations = [];
         foreach ($models as $model) {
@@ -142,15 +137,16 @@ class HasManyThroughMultiple extends HasManyThrough
         }
 
         // Build OR conditions for each key combination
-        $this->query->where(function ($query) use ($keyCombinations, $throughTable) {
+        $throughParent = $this->throughParent;
+        $this->query->where(function ($query) use ($keyCombinations, $throughParent) {
             $first = true;
             foreach ($keyCombinations as $keys) {
                 $method = $first ? 'where' : 'orWhere';
                 $first = false;
 
-                $query->{$method}(function ($q) use ($keys, $throughTable) {
+                $query->{$method}(function ($q) use ($keys, $throughParent) {
                     foreach ($this->firstKeys as $i => $firstKey) {
-                        $q->where($throughTable . '.' . $firstKey, '=', $keys[$i]);
+                        $q->where($throughParent->qualifyColumn($firstKey), '=', $keys[$i]);
                     }
                 });
             }
@@ -194,8 +190,7 @@ class HasManyThroughMultiple extends HasManyThrough
      */
     public function getQualifiedFirstKeyNames(): array
     {
-        $throughTable = $this->throughParent->getTable();
-        return array_map(fn($key) => $throughTable . '.' . $key, $this->firstKeys);
+        return array_map(fn($key) => $this->throughParent->qualifyColumn($key), $this->firstKeys);
     }
 
     /**
@@ -229,11 +224,9 @@ class HasManyThroughMultiple extends HasManyThrough
             }, $columns);
         }
 
-        $throughTable = $this->throughParent->getTable();
-
         // Add all first keys with aliases for matching
         foreach ($this->firstKeys as $key) {
-            $columns[] = $throughTable . '.' . $key . ' as laravel_through_key_' . $key;
+            $columns[] = $this->throughParent->qualifyColumn($key) . ' as laravel_through_key_' . $key;
         }
 
         return array_unique($columns);
@@ -252,14 +245,11 @@ class HasManyThroughMultiple extends HasManyThrough
 
         $query->select($columns);
 
-        $farParentTable = $this->farParent->getTable();
-        $throughTable = $this->throughParent->getTable();
-
         foreach ($this->firstKeys as $i => $firstKey) {
             $query->whereColumn(
-                $farParentTable . '.' . $this->localKeys[$i],
+                $this->farParent->qualifyColumn($this->localKeys[$i]),
                 '=',
-                $throughTable . '.' . $firstKey
+                $this->throughParent->qualifyColumn($firstKey)
             );
         }
 

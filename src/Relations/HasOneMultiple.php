@@ -41,10 +41,8 @@ class HasOneMultiple extends HasOne
     public function addConstraints()
     {
         if (static::$constraints) {
-            $table = $this->related->getTable();
-
             foreach ($this->foreignKeys as $i => $foreignKey) {
-                $this->query->where($table . '.' . $foreignKey, '=', $this->parent->{$this->localKeys[$i]});
+                $this->query->where($this->related->qualifyColumn($foreignKey), '=', $this->parent->{$this->localKeys[$i]});
             }
         }
     }
@@ -55,8 +53,6 @@ class HasOneMultiple extends HasOne
      */
     public function addEagerConstraints(array $models)
     {
-        $table = $this->related->getTable();
-
         // Collect unique key combinations
         $keyCombinations = [];
         foreach ($models as $model) {
@@ -69,15 +65,16 @@ class HasOneMultiple extends HasOne
         }
 
         // Build OR conditions for each key combination
-        $this->query->where(function ($query) use ($keyCombinations, $table) {
+        $related = $this->related;
+        $this->query->where(function ($query) use ($keyCombinations, $related) {
             $first = true;
             foreach ($keyCombinations as $keys) {
                 $method = $first ? 'where' : 'orWhere';
                 $first = false;
 
-                $query->{$method}(function ($q) use ($keys, $table) {
+                $query->{$method}(function ($q) use ($keys, $related) {
                     foreach ($this->foreignKeys as $i => $foreignKey) {
-                        $q->where($table . '.' . $foreignKey, '=', $keys[$i]);
+                        $q->where($related->qualifyColumn($foreignKey), '=', $keys[$i]);
                     }
                 });
             }
@@ -129,15 +126,12 @@ class HasOneMultiple extends HasOne
     {
         $query->select($columns);
 
-        $parentTable = $this->parent->getTable();
-        $relatedTable = $this->related->getTable();
-
         // Add all key constraints for multi-column relationship
         foreach ($this->foreignKeys as $i => $foreignKey) {
             $query->whereColumn(
-                $parentTable . '.' . $this->localKeys[$i],
+                $this->parent->qualifyColumn($this->localKeys[$i]),
                 '=',
-                $relatedTable . '.' . $foreignKey
+                $this->related->qualifyColumn($foreignKey)
             );
         }
 
