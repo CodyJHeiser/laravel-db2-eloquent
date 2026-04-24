@@ -40,11 +40,6 @@ abstract class Model extends EloquentModel
 
     public $incrementing = false;
 
-    protected static function booted(): void
-    {
-        static::preventLazyLoading();
-    }
-
     /**
      * Set the keys for a save update query.
      * Uses all original attributes as WHERE conditions since IBM tables lack primary keys.

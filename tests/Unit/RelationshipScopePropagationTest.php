@@ -5,7 +5,6 @@ namespace CodyJHeiser\Db2Eloquent\Tests\Unit;
 use CodyJHeiser\Db2Eloquent\Tests\Fixtures\TestCategory;
 use CodyJHeiser\Db2Eloquent\Tests\Fixtures\TestItemRelation;
 use CodyJHeiser\Db2Eloquent\Tests\TestCase;
-use Illuminate\Database\Eloquent\Model;
 
 /**
  * Tests to verify that scopes (especially testing()) properly propagate
@@ -21,9 +20,6 @@ class RelationshipScopePropagationTest extends TestCase
     {
         parent::setUp();
         $this->skipIfNoDatabaseDriver();
-
-        // Disable lazy loading prevention for tests
-        Model::preventLazyLoading(false);
 
         // Seed production tables
         $this->app['db']->connection('testing')->table('test_categories')->insert([

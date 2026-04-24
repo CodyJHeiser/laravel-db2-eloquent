@@ -6,7 +6,6 @@ use CodyJHeiser\Db2Eloquent\Relations\BelongsToManyMultiple;
 use CodyJHeiser\Db2Eloquent\Tests\Fixtures\TestItemRelation;
 use CodyJHeiser\Db2Eloquent\Tests\Fixtures\TestTag;
 use CodyJHeiser\Db2Eloquent\Tests\TestCase;
-use Illuminate\Database\Eloquent\Model;
 
 /**
  * Tests for BelongsToManyMultiple relation.
@@ -20,8 +19,6 @@ class BelongsToManyMultipleTest extends TestCase
     {
         parent::setUp();
         $this->skipIfNoDatabaseDriver();
-
-        Model::preventLazyLoading(false);
 
         // Seed items
         $this->app['db']->connection('testing')->table('test_items_rel')->insert([

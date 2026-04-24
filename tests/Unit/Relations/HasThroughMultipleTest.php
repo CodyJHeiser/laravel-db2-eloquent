@@ -6,7 +6,6 @@ use CodyJHeiser\Db2Eloquent\Tests\Fixtures\TestCategory;
 use CodyJHeiser\Db2Eloquent\Tests\Fixtures\TestDepartment;
 use CodyJHeiser\Db2Eloquent\Tests\Fixtures\TestItemRelation;
 use CodyJHeiser\Db2Eloquent\Tests\TestCase;
-use Illuminate\Database\Eloquent\Model;
 
 /**
  * Tests for HasOneThroughMultiple and HasManyThroughMultiple relations.
@@ -20,8 +19,6 @@ class HasThroughMultipleTest extends TestCase
     {
         parent::setUp();
         $this->skipIfNoDatabaseDriver();
-
-        Model::preventLazyLoading(false);
 
         // Seed production departments
         $this->app['db']->connection('testing')->table('test_departments')->insert([
